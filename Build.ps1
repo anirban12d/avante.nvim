@@ -25,37 +25,44 @@ function Build-FromSource($feature) {
     Remove-Item -Recurse -Force "target"
 }
 
+
 function Download-Prebuilt($feature) {
+    Write-Host "Downloading prebuilt binaries for $feature..."
+
     $REPO_OWNER = "yetone"
     $REPO_NAME = "avante.nvim"
-
     $SCRIPT_DIR = $PSScriptRoot
-    # Set the target directory to clone the artifact
     $TARGET_DIR = Join-Path $SCRIPT_DIR "build"
-
-    # Set the platform to Windows
     $PLATFORM = "windows"
-
-    # Set the Lua version (lua51 or luajit)
-    $LUA_VERSION = if ($feature) { $feature } else { "luajit" }
-
-    # Set the artifact name pattern
+    $LUA_VERSION = $feature ? $feature : "luajit"
     $ARTIFACT_NAME_PATTERN = "avante_lib-$PLATFORM-latest-$LUA_VERSION"
 
-    # Get the artifact download URL
     $LATEST_RELEASE = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
     $ARTIFACT_URL = $LATEST_RELEASE.assets | Where-Object { $_.name -like "*$ARTIFACT_NAME_PATTERN*" } | Select-Object -ExpandProperty browser_download_url
 
-    # Create target directory if it doesn't exist
+    if (-not $ARTIFACT_URL) {
+        Write-Host "Error: No matching asset found for $ARTIFACT_NAME_PATTERN." -ForegroundColor Red
+        exit 1
+    }
+
     if (-not (Test-Path $TARGET_DIR)) {
         New-Item -ItemType Directory -Path $TARGET_DIR | Out-Null
     }
 
-    # Download and extract the artifact
-    $TempFile = New-TemporaryFile | Rename-Item -NewName { $_.Name + ".zip" } -PassThru
-    Invoke-WebRequest -Uri $ARTIFACT_URL -OutFile $TempFile
-    Expand-Archive -Path $TempFile -DestinationPath $TARGET_DIR -Force
-    Remove-Item $TempFile
+    try {
+        # Create a temporary file
+        $TempFile = [System.IO.Path]::GetTempFileName()
+        $TempFileZip = "$TempFile.zip"
+        Rename-Item -Path $TempFile -NewName $TempFileZip
+
+        # Download the artifact
+        Invoke-WebRequest -Uri $ARTIFACT_URL -OutFile $TempFileZip
+        Expand-Archive -Path $TempFileZip -DestinationPath $TARGET_DIR -Force
+        Remove-Item $TempFileZip
+    } catch {
+        Write-Host "Error during download or extraction: $_" -ForegroundColor Red
+        exit 1
+    }
 }
 
 function Main {
