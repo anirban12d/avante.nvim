@@ -34,7 +34,7 @@ function Download-Prebuilt($feature) {
     $SCRIPT_DIR = $PSScriptRoot
     $TARGET_DIR = Join-Path $SCRIPT_DIR "build"
     $PLATFORM = "windows"
-    $LUA_VERSION = $feature ? $feature : "luajit"
+ $LUA_VERSION = if ($feature) { $feature } else { "luajit" }
     $ARTIFACT_NAME_PATTERN = "avante_lib-$PLATFORM-latest-$LUA_VERSION"
 
     $LATEST_RELEASE = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
